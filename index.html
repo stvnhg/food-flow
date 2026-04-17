@@ -565,6 +565,7 @@ async function verifyOtp() {
   const btn = document.getElementById('verifyBtn');
   btn.disabled = true; btn.textContent = 'Verifying…';
   const { error } = await supa.auth.verifyOtp({ email, token, type: 'magicLink' });
+  console.log('verify result:', data, error);
   if (error) {
     const msg = document.getElementById('loginMsg');
     msg.style.display = 'block';
