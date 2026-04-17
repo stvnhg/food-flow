@@ -6,13 +6,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Food Log</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="favicon-512.png">
 <meta name="apple-mobile-web-app-title" content="Food Flow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -405,12 +405,21 @@
     </svg>
   </div>
   <div>
-    <div class="login-title">Food Log</div>
-    <div class="login-sub" style="margin-top:6px;">Enter your email to receive a magic link</div>
+    <div class="login-title">Food Flow</div>
+    <div class="login-sub" id="loginSub" style="margin-top:6px;">Enter your email to receive a 6-digit code</div>
   </div>
   <div class="login-form">
-    <input class="login-input" type="email" id="emailInput" placeholder="your@email.com" autocomplete="email">
-    <button class="login-btn" id="loginBtn" onclick="sendMagicLink()">Send magic link</button>
+    <!-- Step 1: email -->
+    <div id="stepEmail">
+      <input class="login-input" type="email" id="emailInput" placeholder="your@email.com" autocomplete="email">
+      <button class="login-btn" id="loginBtn" onclick="sendOtp()" style="margin-top:12px;">Send code</button>
+    </div>
+    <!-- Step 2: OTP code -->
+    <div id="stepCode" style="display:none;">
+      <input class="login-input" type="text" id="otpInput" placeholder="6-digit code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="letter-spacing:0.2em;font-size:20px;text-align:center;">
+      <button class="login-btn" id="verifyBtn" onclick="verifyOtp()" style="margin-top:12px;">Sign in</button>
+      <button onclick="resetLogin()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;margin-top:4px;width:100%;text-align:center;padding:8px;">Use a different email</button>
+    </div>
     <div id="loginMsg" style="display:none;"></div>
   </div>
 </div>
@@ -530,35 +539,60 @@ const supa = createClient(
 );
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
-async function sendMagicLink() {
+async function sendOtp() {
   const email = document.getElementById('emailInput').value.trim();
   if (!email) return;
   const btn = document.getElementById('loginBtn');
   btn.disabled = true; btn.textContent = 'Sending…';
   const { error } = await supa.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.href }
+    options: { shouldCreateUser: false }
   });
   const msg = document.getElementById('loginMsg');
-  msg.style.display = 'block';
   if (error) {
+    msg.style.display = 'block';
     msg.className = 'login-msg error'; msg.textContent = error.message;
-    btn.disabled = false; btn.textContent = 'Send magic link';
+    btn.disabled = false; btn.textContent = 'Send code';
   } else {
-    msg.className = 'login-msg success';
-    msg.textContent = 'Magic link sent — check your email and click the link to sign in.';
-    btn.textContent = 'Link sent ✓';
+    document.getElementById('stepEmail').style.display = 'none';
+    document.getElementById('stepCode').style.display = 'block';
+    document.getElementById('loginSub').textContent = `Code sent to ${email}`;
+    msg.style.display = 'none';
+    setTimeout(() => document.getElementById('otpInput').focus(), 100);
   }
+}
+
+async function verifyOtp() {
+  const email = document.getElementById('emailInput').value.trim();
+  const token = document.getElementById('otpInput').value.trim();
+  if (!token || token.length < 6) return;
+  const btn = document.getElementById('verifyBtn');
+  btn.disabled = true; btn.textContent = 'Verifying…';
+  const { error } = await supa.auth.verifyOtp({ email, token, type: 'email' });
+  if (error) {
+    const msg = document.getElementById('loginMsg');
+    msg.style.display = 'block';
+    msg.className = 'login-msg error'; msg.textContent = 'Invalid or expired code. Try again.';
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+}
+
+function resetLogin() {
+  document.getElementById('stepEmail').style.display = 'block';
+  document.getElementById('stepCode').style.display = 'none';
+  document.getElementById('loginSub').textContent = 'Enter your email to receive a 6-digit code';
+  document.getElementById('emailInput').value = '';
+  document.getElementById('otpInput').value = '';
+  document.getElementById('loginMsg').style.display = 'none';
+  document.getElementById('loginBtn').disabled = false;
+  document.getElementById('loginBtn').textContent = 'Send code';
 }
 
 async function logout() {
   await supa.auth.signOut();
   document.getElementById('app').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('loginBtn').disabled = false;
-  document.getElementById('loginBtn').textContent = 'Send magic link';
-  document.getElementById('loginMsg').style.display = 'none';
-  document.getElementById('emailInput').value = '';
+  resetLogin();
 }
 
 function showApp() {
@@ -568,11 +602,9 @@ function showApp() {
   Promise.all([loadLog(), loadPresets()]);
 }
 
-// listen for auth state changes (handles magic link redirect)
+// listen for auth state changes (handles OTP verification)
 supa.auth.onAuthStateChange((event, session) => {
-  if (session) {
-    showApp();
-  }
+  if (session) showApp();
 });
 
 // check existing session on load
