@@ -396,26 +396,18 @@
 <body>
 
 <!-- LOGIN SCREEN -->
+
 <div id="loginScreen" class="login-screen">
   <div class="login-logo">
     <img src="apple-touch-icon.png" width="64" height="64" />
   </div>
   <div>
     <div class="login-title">Food Flow</div>
-    <div class="login-sub" id="loginSub" style="margin-top:6px;">Enter your email to receive a 6-digit code</div>
+    <div class="login-sub" style="margin-top:6px;">Enter your email to sign in</div>
   </div>
   <div class="login-form">
-    <!-- Step 1: email -->
-    <div id="stepEmail">
-      <input class="login-input" type="email" id="emailInput" placeholder="your@email.com" autocomplete="email">
-      <button class="login-btn" id="loginBtn" onclick="sendOtp()" style="margin-top:12px;">Send code</button>
-    </div>
-    <!-- Step 2: OTP code -->
-    <div id="stepCode" style="display:none;">
-      <input class="login-input" type="text" id="otpInput" placeholder="6-digit code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="letter-spacing:0.2em;font-size:20px;text-align:center;">
-      <button class="login-btn" id="verifyBtn" onclick="verifyOtp()" style="margin-top:12px;">Sign in</button>
-      <button onclick="resetLogin()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;margin-top:4px;width:100%;text-align:center;padding:8px;">Use a different email</button>
-    </div>
+    <input class="login-input" type="email" id="emailInput" placeholder="your@email.com" autocomplete="email">
+    <button class="login-btn" id="loginBtn" onclick="sendOtp()">Send link</button>
     <div id="loginMsg" style="display:none;"></div>
   </div>
 </div>
@@ -542,29 +534,30 @@ async function sendOtp() {
   btn.disabled = true; btn.textContent = 'Sending…';
   const { error } = await supa.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: false }
-  });
+    options: { 
+      emailRedirectTo: 'https://stvnhg.github.io/food-flow/'
+    }
+  });//window.location.origin + window.location.pathname
   const msg = document.getElementById('loginMsg');
   if (error) {
     msg.style.display = 'block';
     msg.className = 'login-msg error'; msg.textContent = error.message;
     btn.disabled = false; btn.textContent = 'Send code';
   } else {
-    document.getElementById('stepEmail').style.display = 'none';
-    document.getElementById('stepCode').style.display = 'block';
-    document.getElementById('loginSub').textContent = `Code sent to ${email}`;
-    msg.style.display = 'none';
-    setTimeout(() => document.getElementById('otpInput').focus(), 100);
+    msg.style.display = 'block';
+    msg.className = 'login-msg success';
+    msg.textContent = 'Check your email and tap the link to sign in.';
+    btn.textContent = 'Link sent ✓';
   }
 }
 
 async function verifyOtp() {
   const email = document.getElementById('emailInput').value.trim();
   const token = document.getElementById('otpInput').value.trim();
-  if (!token || token.length < 6) return;
+  if (!token || token.length < 8) return;
   const btn = document.getElementById('verifyBtn');
   btn.disabled = true; btn.textContent = 'Verifying…';
-  const { error } = await supa.auth.verifyOtp({ email, token, type: 'magicLink' });
+  const { data, error } = await supa.auth.verifyOtp({ email, token, type: 'magicLink' });
   console.log('verify result:', data, error);
   if (error) {
     const msg = document.getElementById('loginMsg');
